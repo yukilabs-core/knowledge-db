@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "NODE_ENV=development node src/index.js",
     "start": "node src/index.js",
+    "crawl": "node scripts/run-crawler.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -16,6 +17,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "node-fetch": "^2.7.0",
     "pg": "^8.20.0",
     "puppeteer": "^24.41.0",
     "uuid": "^13.0.0"
