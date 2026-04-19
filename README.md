@@ -76,13 +76,46 @@ Response:
 
 List all documents.
 
+## デプロイ（Render）
+
+### API サーバーのデプロイ
+
+1. GitHub にプッシュ
+```bash
+git add .
+git commit -m "Phase 5: Add Render deployment config"
+git push origin main
+```
+
+2. [Render](https://render.com) にログイン → 「New +」→「Web Service」
+3. GitHub リポジトリを接続
+4. 以下を設定：
+   - **Name:** knowledge-db-api
+   - **Runtime:** Node
+   - **Build Command:** `npm install`
+   - **Start Command:** `npm start`
+   - **Environment Variables:**
+     - `NODE_ENV=production`
+     - `DATABASE_URL=postgresql://...` (Neon URL をペースト)
+
+5. デプロイ開始 → 3-5分で完了
+
+### フロントエンド（Vercel）
+
+```bash
+cd ../knowledge-db-web
+vercel --prod
+```
+
+デプロイ後、`.env.local` の NEXT_PUBLIC_API_URL を本番 API URL に更新
+
 ## 実装フェーズ
 
 - [x] Phase 1: セットアップ
-- [ ] Phase 2: Crawler
-- [ ] Phase 3: Search API
-- [ ] Phase 4: Frontend
-- [ ] Phase 5: ドキュメント & 公開
+- [x] Phase 2: Crawler
+- [x] Phase 3: Search API
+- [x] Phase 4: Frontend
+- [x] Phase 5: ドキュメント & 公開
 
 ## 費用
 
