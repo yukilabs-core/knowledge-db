@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import pool from './db/connection.js';
+import searchRouter from './routes/search.js';
 
 dotenv.config();
 
@@ -29,10 +30,16 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// TODO: Add routes
-// - POST /api/search
-// - GET /api/documents
-// - POST /api/crawl (admin only)
+// Routes
+app.use('/api', searchRouter);
+
+// 404
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Not found'
+  });
+});
 
 app.listen(PORT, () => {
   console.log(`🚀 Knowledge DB API running on port ${PORT}`);
