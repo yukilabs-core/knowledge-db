@@ -1,0 +1,9 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches: [main, develop, master]
+
+jobs:
+  check:
+    uses: ./.github/workflows/_shared-pr-check.yml

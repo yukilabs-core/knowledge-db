@@ -1,0 +1,33 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+
+jobs:
+  deploy-staging:
+    if: github.ref == 'refs/heads/develop'
+    uses: ./.github/workflows/_shared-deploy.yml
+    with:
+      environment: staging
+      branch: develop
+      deploy-command: 'docker-compose restart'
+    secrets:
+      SSH_KEY: ${{ secrets.MINIPC_SSH_KEY }}
+      SSH_HOST: ${{ secrets.MINIPC_HOST }}
+      SSH_USER: ${{ secrets.MINIPC_USER }}
+  
+  deploy-production:
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    uses: ./.github/workflows/_shared-deploy.yml
+    with:
+      environment: production
+      branch: main
+      deploy-command: 'docker-compose restart'
+    secrets:
+      SSH_KEY: ${{ secrets.MINIPC_SSH_KEY }}
+      SSH_HOST: ${{ secrets.MINIPC_HOST }}
+      SSH_USER: ${{ secrets.MINIPC_USER }}

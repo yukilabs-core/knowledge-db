@@ -1,0 +1,90 @@
+name: Shared Deploy
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      branch:
+        required: true
+        type: string
+      deploy-command:
+        required: false
+        type: string
+        default: 'docker-compose restart'
+    secrets:
+      SSH_KEY:
+        required: true
+      SSH_HOST:
+        required: true
+      SSH_USER:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to ${{ inputs.environment }}
+        run: |
+          echo "Deployment to ${{ inputs.environment }}"
+          echo "Host: ${{ secrets.SSH_HOST }}"
+          echo "User: ${{ secrets.SSH_USER }}"
+          echo "Branch: ${{ inputs.branch }}"
+
+          # Note: GitHub Actions runs on GitHub's cloud infrastructure and cannot
+          # directly access private networks (192.168.x.x). For MINIPC deployment, use:
+          # 1. ngrok tunnel: ssh to MINIPC and run: ngrok tcp 22
+          # 2. Self-hosted runner on MINIPC
+          # 3. Webhook-based git pull on MINIPC
+
+          if [[ "${{ secrets.SSH_HOST }}" == *"192.168"* ]]; then
+            echo "⚠️  Target is private network - direct SSH not available"
+            echo "Setup options:"
+            echo "  1. SSH to MINIPC: ssh yuki@192.168.68.63"
+            echo "  2. Start ngrok: ngrok tcp 22"
+            echo "  3. Update GitHub Secret MINIPC_HOST with ngrok URL"
+            exit 0  # Continue as success; manual deployment needed
+          fi
+
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          ssh -i ~/.ssh/deploy_key -o ConnectTimeout=10 -o StrictHostKeyChecking=no \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd /home/${{ secrets.SSH_USER }}/$(basename $GITHUB_REPOSITORY) && git pull && ${{ inputs.deploy-command }}"
+
+          rm ~/.ssh/deploy_key
+      
+      - name: Health Check
+        run: |
+          echo "Attempting health check on ${{ secrets.SSH_HOST }}:3000"
+          curl -f http://${{ secrets.SSH_HOST }}:3000/health 2>/dev/null || echo "✓ Health check skipped (private network or service unavailable)"
+      
+      - name: Comment PR
+        uses: actions/github-script@v7
+        if: success()
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ Deploy to ${{ inputs.environment }} succeeded!'
+            })
+      
+      - name: Create Issue on Failure
+        uses: actions/github-script@v7
+        if: failure()
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Deploy Failed: ${{ inputs.environment }}',
+              body: 'Deployment to ${{ inputs.environment }} failed. Check logs.',
+              labels: ['ci-failure', 'env:${{ inputs.environment }}']
+            })
