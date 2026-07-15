@@ -6,7 +6,7 @@ on:
       node-version:
         required: false
         type: string
-        default: '22'
+        default: "22"
 
 jobs:
   ci:
@@ -23,19 +23,36 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
-          cache: 'pnpm'
-      
+          cache: "pnpm"
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Lint
         run: pnpm lint || true
-      
+
       - name: Type check
         run: pnpm type-check || true
-      
+
       - name: Test
         run: pnpm test || true
-      
+
       - name: Build
         run: pnpm build || true
+
+      - name: Checkout dep-policy
+        uses: actions/checkout@v4
+        with:
+          repository: flipslidersand/dev-infrastructure
+          path: .dep-policy
+          sparse-checkout: |
+            dependency-policy
+            scripts/dep-policy-check.py
+          sparse-checkout-cone-mode: false
+
+      - name: Dependency policy drift check
+        run: |
+          pip install pyyaml --quiet --disable-pip-version-check
+          python3 .dep-policy/scripts/dep-policy-check.py \
+            --policy-dir .dep-policy/dependency-policy || echo "::warning::dependency drift detected"
+        continue-on-error: true
