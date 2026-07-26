@@ -1,0 +1,49 @@
+name: Scheduled Crawler
+
+on:
+  schedule:
+    - cron: "0 2 * * *" # 11:00 JST daily
+  workflow_dispatch:
+    inputs:
+      category:
+        description: "arXiv category (e.g. cs.AI)"
+        default: "cs.AI"
+      tag:
+        description: "Dev.to tag"
+        default: "ai"
+      limit:
+        description: "Max documents per source"
+        default: "100"
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Run crawlers
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NODE_ENV: production
+          ARXIV_CATEGORY: ${{ inputs.category || 'cs.AI' }}
+          DEVTO_TAG: ${{ inputs.tag || 'ai' }}
+          CRAWL_LIMIT: ${{ inputs.limit || '100' }}
+        run: node scripts/run-crawler.js
+
+      - name: Notify on failure
+        if: failure()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_INFRA }}
+        run: |
+          if [ -n "$DISCORD_WEBHOOK" ]; then
+            curl -sf -H "Content-Type: application/json" \
+              -d "{\"content\":\"❌ knowledge-db crawler 失敗: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
+              "$DISCORD_WEBHOOK" || true
+          fi
