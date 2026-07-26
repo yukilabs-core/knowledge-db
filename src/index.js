@@ -1,7 +1,9 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import pinoHttp from "pino-http";
 import client from "prom-client";
+import logger from "./logger.js";
 import pool from "./db/connection.js";
 import searchRouter from "./routes/search.js";
 
@@ -43,6 +45,7 @@ app.locals.dbQueryDuration = dbQueryDuration;
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(pinoHttp({ logger }));
 
 // Request instrumentation
 app.use((req, res, next) => {
@@ -93,4 +96,6 @@ app.use((req, res) => {
   });
 });
 
-app.listen(PORT);
+app.listen(PORT, () => {
+  logger.info({ port: PORT }, "server started");
+});
