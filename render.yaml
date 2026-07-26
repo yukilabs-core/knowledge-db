@@ -2,8 +2,11 @@ services:
   - type: web
     name: knowledge-db-api
     runtime: node
+    region: oregon
+    plan: free
     buildCommand: npm install
     startCommand: npm start
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
