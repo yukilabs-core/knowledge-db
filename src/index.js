@@ -96,6 +96,22 @@ app.use((req, res) => {
   });
 });
 
+// 5xx error handler — logs + optional Discord alert
+app.use((err, req, res, next) => {
+  logger.error({ err, method: req.method, url: req.url }, "unhandled error");
+  const webhook = process.env.DISCORD_WEBHOOK_INFRA;
+  if (webhook) {
+    fetch(webhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: `❌ knowledge-db-api エラー: \`${req.method} ${req.path}\` → ${err.message}`,
+      }),
+    }).catch(() => {});
+  }
+  res.status(500).json({ success: false, error: "Internal server error" });
+});
+
 app.listen(PORT, () => {
   logger.info({ port: PORT }, "server started");
 });
