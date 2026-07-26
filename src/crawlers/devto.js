@@ -1,6 +1,7 @@
 import fetch from "node-fetch";
 import crypto from "crypto";
 import { query } from "../db/connection.js";
+import { withRetry } from "../utils/retry.js";
 
 const DEVTO_API = "https://dev.to/api/articles";
 
@@ -67,7 +68,7 @@ async function fetchDevToArticles(tag, limit) {
     per_page: Math.min(limit, 1000),
   });
 
-  const res = await fetch(`${DEVTO_API}?${params}`);
+  const res = await withRetry(() => fetch(`${DEVTO_API}?${params}`));
   const articles = await res.json();
 
   return articles.map((article) => ({

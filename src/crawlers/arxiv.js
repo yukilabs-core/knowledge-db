@@ -1,10 +1,9 @@
 import fetch from "node-fetch";
 import crypto from "crypto";
 import { query } from "../db/connection.js";
+import { withRetry } from "../utils/retry.js";
 
 const ARXIV_API = "http://export.arxiv.org/api/query";
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const crawlArxiv = async (category = "cs.AI", limit = 50) => {
   const jobId = crypto.randomUUID();
@@ -68,7 +67,7 @@ async function fetchArxivPapers(category, limit) {
     sortOrder: "descending",
   });
 
-  const res = await fetch(`${ARXIV_API}?${params}`);
+  const res = await withRetry(() => fetch(`${ARXIV_API}?${params}`));
   const xml = await res.text();
 
   const papers = [];
