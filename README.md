@@ -1,126 +1,136 @@
-# Knowledge DB - 検索AI / ナレッジデータベース
+# Knowledge DB — ナレッジデータベース API
 
-分散した情報を収集・構造化し、自然言語で検索・参照できるナレッジ基盤。
+分散した情報を収集・構造化し、自然言語で検索できるナレッジ基盤。arXiv 論文と dev.to 記事を自動収集し、PostgreSQL FTS で全文検索を提供する。
+
+**本番 URL:** `https://knowledge-db-api.onrender.com`
+
+## アーキテクチャ
+
+```text
+┌─────────────────┐     GET /api/search      ┌──────────────────────┐
+│  knowledge-db-  │ ───────────────────────▶ │  knowledge-db API    │
+│  web (Vercel)   │                           │  (Render / Node.js)  │
+└─────────────────┘                           └──────────┬───────────┘
+                                                         │ pg Pool
+                                              ┌──────────▼───────────┐
+┌─────────────────┐   GitHub Actions (daily)  │  Neon PostgreSQL     │
+│  arXiv / dev.to │ ─────────────────────────▶│  (FTS5 + pgvector)   │
+│  クローラー      │   INSERT ON CONFLICT       └──────────────────────┘
+└─────────────────┘   DO NOTHING
+
+                      Prometheus /metrics
+┌─────────────────┐ ◀──────────────────────── knowledge-db API
+│  MINIPC         │
+│  Prometheus     │   Slack / Discord アラート（5xx / Down）
+│  + Grafana      │ ──────────────────────────────────────▶ Discord
+└─────────────────┘
+```
 
 ## 技術スタック
 
-| Layer | Technology | Reason |
-|-------|-----------|--------|
-| Frontend | Vercel + Next.js | 無料、デプロイ簡単、100GB bandwidth |
-| API | Cloud Run + Node.js | 無料、2M requests/月、自動スケール |
-| Database | Neon (PostgreSQL + pgvector) | 無料 3GB + Full Text Search |
-| Crawler | Puppeteer on Cloud Run | ブラウザ自動化、スクレイピング |
-| Search | PostgreSQL Full Text Search | インデックス設計が見える |
-| Deployment | GitHub + Vercel + Cloud Run | 完全無料、自動デプロイ |
+| Layer | Technology |
+| ----- | ---------- |
+| API | Node.js (Express) on Render |
+| Database | Neon (PostgreSQL 16) |
+| Search | PostgreSQL Full Text Search |
+| Observability | prom-client + pino |
+| Crawler | arXiv REST API + dev.to API |
+| Deployment | Render (API) + Vercel (Web) |
 
-## セットアップ
-
-### 1. Neon データベース作成
-
-1. [Neon.tech](https://neon.tech) でアカウント作成
-2. Postgres 16+ を選択
-3. DATABASE_URL を `.env` に設定
+## クイックスタート（ローカル）
 
 ```bash
-cp .env.example .env
-# .env を編集して DATABASE_URL を設定
-```
-
-### 2. DB スキーマ作成
-
-```bash
-# psql で接続
-psql $DATABASE_URL -f scripts/schema.sql
-```
-
-### 3. API サーバー実行
-
-```bash
+# 1. 依存インストール
 npm install
+
+# 2. 環境変数設定
+cp .env.example .env
+# .env に DATABASE_URL を設定（Neon の接続文字列）
+
+# 3. DB スキーマ作成（初回のみ）
+psql "$DATABASE_URL" -f scripts/schema.sql
+
+# 4. 開発サーバー起動
 npm run dev
 ```
 
-Health check: `curl http://localhost:3000/api/health`
+動作確認:
 
-## API 仕様
-
-### POST /search
-
-```json
-{
-  "query": "RAGの精度を上げる方法",
-  "limit": 10
-}
+```bash
+curl http://localhost:3000/api/health
+curl "http://localhost:3000/api/search?q=machine+learning&limit=5"
+curl http://localhost:3000/metrics
 ```
 
-Response:
+## 環境変数
+
+| 変数名 | 必須 | 説明 |
+| ------ | ---- | ---- |
+| `DATABASE_URL` | ✅ | Neon PostgreSQL 接続文字列 |
+| `LOG_LEVEL` | — | ログレベル（デフォルト: info） |
+| `DISCORD_WEBHOOK_INFRA` | — | 5xx エラー時の Discord 通知先 |
+
+## API エンドポイント
+
+| Method | Path | 説明 |
+| ------ | ---- | ---- |
+| `GET` | `/api/health` | DB 死活確認 |
+| `GET` | `/api/search?q=<query>&limit=<n>` | 全文検索 |
+| `GET` | `/metrics` | Prometheus メトリクス |
+
+### GET /api/search
+
+```bash
+curl "https://knowledge-db-api.onrender.com/api/search?q=RAG&limit=5"
+```
+
 ```json
 {
-  "query": "RAGの精度を上げる方法",
   "results": [
     {
-      "id": "uuid-1",
+      "id": "uuid",
       "title": "論文タイトル",
       "abstract": "要約...",
-      "source_url": "https://...",
+      "source_url": "https://arxiv.org/...",
       "published_at": "2024-01-15",
       "relevance_score": 0.87
     }
   ],
-  "total_count": 3,
+  "total_count": 5,
   "response_ms": 45
 }
 ```
 
-### GET /documents
+## クローラー
 
-List all documents.
-
-## デプロイ（Render）
-
-### API サーバーのデプロイ
-
-1. GitHub にプッシュ
-```bash
-git add .
-git commit -m "Phase 5: Add Render deployment config"
-git push origin main
-```
-
-2. [Render](https://render.com) にログイン → 「New +」→「Web Service」
-3. GitHub リポジトリを接続
-4. 以下を設定：
-   - **Name:** knowledge-db-api
-   - **Runtime:** Node
-   - **Build Command:** `npm install`
-   - **Start Command:** `npm start`
-   - **Environment Variables:**
-     - `NODE_ENV=production`
-     - `DATABASE_URL=postgresql://...` (Neon URL をペースト)
-
-5. デプロイ開始 → 3-5分で完了
-
-### フロントエンド（Vercel）
+GitHub Actions で毎日 11:00 JST に自動実行。手動実行:
 
 ```bash
-cd ../knowledge-db-web
-vercel --prod
+gh workflow run crawl.yml --repo yukilabs-core/knowledge-db
 ```
 
-デプロイ後、`.env.local` の NEXT_PUBLIC_API_URL を本番 API URL に更新
+ローカル実行:
+
+```bash
+DATABASE_URL="..." node scripts/run-crawler.js --source arxiv --limit 50
+DATABASE_URL="..." node scripts/run-crawler.js --source devto --limit 50
+```
+
+## ドキュメント
+
+| ドキュメント | 内容 |
+| ------------ | ---- |
+| [docs/operations.md](docs/operations.md) | デプロイ手順・go-live チェックリスト・定期メンテ |
+| [docs/sla-and-monitoring.md](docs/sla-and-monitoring.md) | SLA 目標値・監視メトリクス定義 |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | 障害対応ガイド（8パターン） |
+| [docs/recovery.md](docs/recovery.md) | データ復旧手順 |
 
 ## 実装フェーズ
 
-- [x] Phase 1: セットアップ
-- [x] Phase 2: Crawler
-- [x] Phase 3: Search API
-- [x] Phase 4: Frontend
-- [x] Phase 5: ドキュメント & 公開
-
-## 費用
-
-完全無料（毎月 $0）
-
-- Neon: 無料 3GB
-- Cloud Run: 無料 2M requests/月
-- Vercel: 無料 100GB bandwidth
+- [x] Phase 1: セットアップ（DB スキーマ・Express 基盤）
+- [x] Phase 2: Crawler（arXiv + dev.to）
+- [x] Phase 3: Search API（PostgreSQL FTS）
+- [x] Phase 4: Frontend（knowledge-db-web）
+- [x] Phase 5: 観測性（prom-client + pino）
+- [x] Phase 6: 信頼性（ON CONFLICT dedup + retry）
+- [x] Phase 7: ドキュメント整備

@@ -153,6 +153,70 @@ gh workflow run crawl.yml --repo yukilabs-core/knowledge-db \
 
 ---
 
+## 定期メンテナンスチェックリスト
+
+### 日次（自動）
+
+- [ ] クローラーワークフロー成功確認: `gh run list --workflow crawl.yml --limit 1`
+- [ ] `/api/health` が `200 OK` を返していること
+- [ ] Render ログに ERROR 行がないこと
+
+### 週次（手動）
+
+- [ ] エントリ件数の増加確認（前週比）
+
+  ```bash
+  psql "$DATABASE_URL" -c "SELECT COUNT(*), MAX(created_at) FROM entries;"
+  ```
+
+- [ ] Neon ストレージ使用量確認（Free: 3GB 上限）
+  - Neon コンソール → Monitoring → Storage
+- [ ] Render デプロイ履歴確認（失敗がないか）
+
+  ```bash
+  render deploys list --service <service-id> | head -5
+  ```
+
+- [ ] Prometheus アラートが発火していないか確認
+- [ ] pnpm audit（セキュリティ脆弱性スキャン）
+
+  ```bash
+  cd yukilabs-core/knowledge-db && pnpm audit
+  ```
+
+### 月次
+
+- [ ] 依存パッケージの更新（Renovate PR を確認・マージ）
+- [ ] Neon のポイントインタイムリストア設定確認（7日分）
+- [ ] SLA 達成状況の確認（Render ダッシュボードの Uptime グラフ）
+
+---
+
+## バックアップ手順
+
+### Neon の自動バックアップ
+
+Neon は継続的な WAL ベースのバックアップを自動実行する。手動操作不要。
+
+- Free プラン: 直近 7 日間のポイントインタイムリストア
+- 確認: Neon コンソール → Branching
+
+### 手動スナップショット（任意）
+
+```bash
+export DATABASE_URL="..."
+
+# スナップショット作成
+pg_dump "$DATABASE_URL" \
+  --no-owner --no-acl \
+  -f "backup_$(date +%Y%m%d).sql"
+
+# 保存先: ~/backups/knowledge-db/ (MINIPC)
+scp "backup_$(date +%Y%m%d).sql" yuki@192.168.68.63:/home/yuki/backups/knowledge-db/
+```
+
+---
+
 ## 関連ドキュメント
 
 - [SLA・監視メトリクス定義](sla-and-monitoring.md)
