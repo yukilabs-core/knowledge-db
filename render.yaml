@@ -2,12 +2,16 @@ services:
   - type: web
     name: knowledge-db-api
     runtime: node
+    region: oregon
+    plan: free
     buildCommand: npm install
     startCommand: npm start
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        value: postgresql://neondb_owner:npg_DZNrc2lVBQe4@ep-fancy-bread-amucak4i-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+        # Render Dashboard で設定（平文コミット禁止）
+        # 値: postgresql://neondb_owner:<PASSWORD>@ep-fancy-bread-amucak4i-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
       - key: PORT
         value: 10000
