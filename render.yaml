@@ -15,3 +15,7 @@ services:
         # 値: postgresql://neondb_owner:<PASSWORD>@ep-fancy-bread-amucak4i-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
       - key: PORT
         value: 10000
+      - key: DISCORD_WEBHOOK_INFRA
+        # Render Dashboard で設定（gopass infra/discord/webhook-infra）
+      - key: LOG_LEVEL
+        value: info
