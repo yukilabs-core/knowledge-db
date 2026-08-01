@@ -43,8 +43,22 @@ const dbQueryDuration = new client.Histogram({
 app.locals.dbQueryDuration = dbQueryDuration;
 
 // Middleware
-app.use(cors());
-app.use(express.json());
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(",").map((o) => o.trim())
+  : [];
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // allow server-to-server (no origin) and configured origins
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+  }),
+);
+app.use(express.json({ limit: "10kb" }));
 app.use(pinoHttp({ logger }));
 
 // Request instrumentation
@@ -79,11 +93,25 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-// Prometheus metrics endpoint
-app.get("/metrics", async (req, res) => {
-  res.set("Content-Type", register.contentType);
-  res.end(await register.metrics());
-});
+// Prometheus metrics endpoint — LAN/localhost only
+app.get(
+  "/metrics",
+  (req, res, next) => {
+    const ip = req.ip || req.socket.remoteAddress || "";
+    const isInternal =
+      ip === "127.0.0.1" ||
+      ip === "::1" ||
+      ip.startsWith("192.168.") ||
+      ip.startsWith("10.") ||
+      ip.startsWith("172.");
+    if (!isInternal) return res.status(403).end();
+    next();
+  },
+  async (req, res) => {
+    res.set("Content-Type", register.contentType);
+    res.end(await register.metrics());
+  },
+);
 
 // Routes
 app.use("/api", searchRouter);
