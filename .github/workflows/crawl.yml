@@ -29,18 +29,46 @@ jobs:
       - run: npm ci
 
       - name: Run crawlers
+        id: crawl
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           NODE_ENV: production
           ARXIV_CATEGORY: ${{ inputs.category || 'cs.AI' }}
           DEVTO_TAG: ${{ inputs.tag || 'ai' }}
           CRAWL_LIMIT: ${{ inputs.limit || '100' }}
-        run: node scripts/run-crawler.js
+        run: |
+          OUTPUT=$(node scripts/run-crawler.js 2>&1)
+          echo "$OUTPUT"
+          SUMMARY=$(echo "$OUTPUT" | grep "crawl complete:" | tail -1)
+          echo "summary=$SUMMARY" >> $GITHUB_OUTPUT
+
+      - name: Check total docs
+        id: stats
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          TOTAL=$(node -e "
+            import('./src/db/connection.js').then(async ({default: pool}) => {
+              const r = await pool.query('SELECT COUNT(*) FROM documents');
+              console.log(r.rows[0].count);
+              process.exit(0);
+            }).catch(() => { console.log('?'); process.exit(0); });
+          " 2>/dev/null || echo "?")
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+
+      - name: Notify success
+        if: success()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_INFRA }}
+        run: |
+          curl -sf -H "Content-Type: application/json" \
+            -d "{\"content\":\"✅ knowledge-db クロール完了\n\`${{ steps.crawl.outputs.summary }}\`\nDB合計: ${{ steps.stats.outputs.total }}件\"}" \
+            "$DISCORD_WEBHOOK" || true
 
       - name: Notify on failure
         if: failure()
         env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_INFRA }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_INFRA || '' }}
         run: |
           if [ -n "$DISCORD_WEBHOOK" ]; then
             curl -sf -H "Content-Type: application/json" \
