@@ -1,0 +1,33 @@
+name: Health Check
+
+on:
+  schedule:
+    - cron: "*/30 * * * *" # 30分ごと
+  workflow_dispatch:
+
+jobs:
+  healthcheck:
+    runs-on: arc-dev-nodee
+    steps:
+      - name: Check API health
+        id: health
+        run: |
+          STATUS=$(curl -sf --max-time 10 \
+            -o /tmp/health.json \
+            -w "%{http_code}" \
+            https://knowledge-db-api.onrender.com/api/health || echo "000")
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+          echo "body=$(cat /tmp/health.json 2>/dev/null || echo '{}')" >> $GITHUB_OUTPUT
+
+      - name: Notify on failure
+        if: steps.health.outputs.status != '200'
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_INFRA }}
+        run: |
+          curl -sf -H "Content-Type: application/json" \
+            -d "{\"content\":\"❌ knowledge-db-api ヘルスチェック失敗 (HTTP ${{ steps.health.outputs.status }})\nhttps://knowledge-db-api.onrender.com/api/health\"}" \
+            "$DISCORD_WEBHOOK" || true
+
+      - name: Notify on recovery
+        if: steps.health.outputs.status == '200'
+        run: echo "✅ healthy (HTTP 200)"
