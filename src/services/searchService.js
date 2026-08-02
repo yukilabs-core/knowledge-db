@@ -117,12 +117,12 @@ export const getStats = async () => {
   }
 };
 
-async function logSearch(query, resultCount, responseMsMs) {
+async function logSearch(searchQuery, resultCount, responseMsMs) {
   try {
     await query(
       `INSERT INTO search_logs (query, result_count, response_ms)
        VALUES ($1, $2, $3)`,
-      [query, resultCount, responseMsMs]
+      [searchQuery, resultCount, responseMsMs]
     );
   } catch (err) {
     console.error('[SearchLog] Error:', err);
