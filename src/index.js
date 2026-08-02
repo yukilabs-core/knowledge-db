@@ -93,18 +93,14 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-// Prometheus metrics endpoint — LAN/localhost only
+// Prometheus metrics endpoint — Bearer token required
 app.get(
   "/metrics",
   (req, res, next) => {
-    const ip = req.ip || req.socket.remoteAddress || "";
-    const isInternal =
-      ip === "127.0.0.1" ||
-      ip === "::1" ||
-      ip.startsWith("192.168.") ||
-      ip.startsWith("10.") ||
-      ip.startsWith("172.");
-    if (!isInternal) return res.status(403).end();
+    const token = process.env.METRICS_TOKEN;
+    if (!token) return res.status(403).end();
+    const auth = req.headers["authorization"] || "";
+    if (auth !== `Bearer ${token}`) return res.status(403).end();
     next();
   },
   async (req, res) => {

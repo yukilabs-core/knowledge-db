@@ -20,4 +20,6 @@ services:
       - key: LOG_LEVEL
         value: info
       - key: CORS_ORIGIN
-        # Render Dashboard で設定（フロントエンド URL。例: https://knowledge-db-web.vercel.app）
+        # Render Dashboard で設定（フロントエンド URL。例: https://cosmic-arithmetic-3fbd22.netlify.app）
+      - key: METRICS_TOKEN
+        # Render Dashboard で設定（openssl rand -hex 32 で生成）
