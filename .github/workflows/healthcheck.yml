@@ -7,7 +7,7 @@ on:
 
 jobs:
   healthcheck:
-    runs-on: arc-dev-nodee
+    runs-on: arc-knowledge-db
     steps:
       - name: Check API health
         id: health
