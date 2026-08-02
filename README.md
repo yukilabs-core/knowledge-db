@@ -2,14 +2,15 @@
 
 分散した情報を収集・構造化し、自然言語で検索できるナレッジ基盤。arXiv 論文と dev.to 記事を自動収集し、PostgreSQL FTS で全文検索を提供する。
 
-**本番 URL:** `https://knowledge-db-api.onrender.com`
+**本番 URL（API）:** https://knowledge-db-api.onrender.com
+**本番 URL（Web）:** https://cosmic-arithmetic-3fbd22.netlify.app
 
 ## アーキテクチャ
 
 ```text
 ┌─────────────────┐     GET /api/search      ┌──────────────────────┐
 │  knowledge-db-  │ ───────────────────────▶ │  knowledge-db API    │
-│  web (Vercel)   │                           │  (Render / Node.js)  │
+│  web (Netlify)  │                           │  (Render / Node.js)  │
 └─────────────────┘                           └──────────┬───────────┘
                                                          │ pg Pool
                                               ┌──────────▼───────────┐
@@ -35,7 +36,7 @@
 | Search | PostgreSQL Full Text Search |
 | Observability | prom-client + pino |
 | Crawler | arXiv REST API + dev.to API |
-| Deployment | Render (API) + Vercel (Web) |
+| Deployment | Render (API) + Netlify (Web) |
 
 ## クイックスタート（ローカル）
 
@@ -134,3 +135,5 @@ DATABASE_URL="..." node scripts/run-crawler.js --source devto --limit 50
 - [x] Phase 5: 観測性（prom-client + pino）
 - [x] Phase 6: 信頼性（ON CONFLICT dedup + retry）
 - [x] Phase 7: ドキュメント整備
+- [x] Phase 8: 本番デプロイ（Render API + Netlify Web）
+- [x] Phase 9: 監視自動化（30分ヘルスチェック + クローラー結果通知）
