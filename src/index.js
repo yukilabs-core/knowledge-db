@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
 import pinoHttp from "pino-http";
 import client from "prom-client";
@@ -76,6 +77,17 @@ app.use((req, res, next) => {
   next();
 });
 
+const searchLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: "Too many requests, please try again later.",
+  },
+});
+
 // Health check
 app.get("/api/health", async (req, res) => {
   try {
@@ -110,7 +122,7 @@ app.get(
 );
 
 // Routes
-app.use("/api", searchRouter);
+app.use("/api", searchLimiter, searchRouter);
 
 // 404
 app.use((req, res) => {
