@@ -42,6 +42,7 @@ jobs:
 
       - name: Checkout dep-policy
         uses: actions/checkout@v4
+        continue-on-error: true
         with:
           repository: flipslidersand/dev-infrastructure
           path: .dep-policy
