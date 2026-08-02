@@ -1,8 +1,14 @@
 import pkg from "pg";
 const { Pool } = pkg;
 
+// channel_binding=require conflicts with rejectUnauthorized: false (Neon + pg driver)
+const dbUrl = process.env.DATABASE_URL?.replace(
+  /[&?]channel_binding=require/g,
+  "",
+);
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: dbUrl,
   ssl:
     process.env.NODE_ENV === "production"
       ? { rejectUnauthorized: false }
