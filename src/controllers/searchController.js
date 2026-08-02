@@ -1,28 +1,33 @@
-import { searchDocuments, getDocuments, getStats } from '../services/searchService.js';
+import {
+  searchDocuments,
+  getDocuments,
+  getStats,
+} from "../services/searchService.js";
 
 export const search = async (req, res) => {
   try {
     const { query, limit = 10, offset = 0 } = req.body;
 
-    if (!query || query.trim().length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'query parameter is required'
-      });
+    if (!query || typeof query !== "string" || query.trim().length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, error: "query parameter is required" });
+    }
+    if (query.length > 500) {
+      return res
+        .status(400)
+        .json({ success: false, error: "query too long (max 500 chars)" });
     }
 
-    const results = await searchDocuments(query, parseInt(limit), parseInt(offset));
+    const safeLimit = Math.min(Math.max(parseInt(limit) || 10, 1), 50);
+    const safeOffset = Math.max(parseInt(offset) || 0, 0);
 
-    res.json({
-      success: true,
-      data: results
-    });
+    const results = await searchDocuments(query, safeLimit, safeOffset);
+
+    res.json({ success: true, data: results });
   } catch (err) {
-    console.error('[SearchController] Error:', err);
-    res.status(500).json({
-      success: false,
-      error: err.message
-    });
+    console.error("[SearchController] Error:", err);
+    res.status(500).json({ success: false, error: "Internal server error" });
   }
 };
 
@@ -30,17 +35,19 @@ export const listDocuments = async (req, res) => {
   try {
     const { limit = 20, offset = 0 } = req.query;
 
-    const documents = await getDocuments(parseInt(limit), parseInt(offset));
+    const safeLimit = Math.min(Math.max(parseInt(limit) || 20, 1), 100);
+    const safeOffset = Math.max(parseInt(offset) || 0, 0);
+    const documents = await getDocuments(safeLimit, safeOffset);
 
     res.json({
       success: true,
-      data: documents
+      data: documents,
     });
   } catch (err) {
-    console.error('[DocumentsController] Error:', err);
+    console.error("[DocumentsController] Error:", err);
     res.status(500).json({
       success: false,
-      error: err.message
+      error: "Internal server error",
     });
   }
 };
@@ -51,13 +58,13 @@ export const getSearchStats = async (req, res) => {
 
     res.json({
       success: true,
-      data: stats
+      data: stats,
     });
   } catch (err) {
-    console.error('[StatsController] Error:', err);
+    console.error("[StatsController] Error:", err);
     res.status(500).json({
       success: false,
-      error: err.message
+      error: "Internal server error",
     });
   }
 };
@@ -65,5 +72,5 @@ export const getSearchStats = async (req, res) => {
 export default {
   search,
   listDocuments,
-  getSearchStats
+  getSearchStats,
 };

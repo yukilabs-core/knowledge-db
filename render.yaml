@@ -19,3 +19,5 @@ services:
         # Render Dashboard で設定（gopass infra/discord/webhook-infra）
       - key: LOG_LEVEL
         value: info
+      - key: CORS_ORIGIN
+        # Render Dashboard で設定（フロントエンド URL。例: https://knowledge-db-web.vercel.app）
