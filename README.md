@@ -2,15 +2,15 @@
 
 分散した情報を収集・構造化し、自然言語で検索できるナレッジ基盤。arXiv 論文と dev.to 記事を自動収集し、PostgreSQL FTS で全文検索を提供する。
 
-**本番 URL（API）:** https://knowledge-db-api.onrender.com
-**本番 URL（Web）:** https://cosmic-arithmetic-3fbd22.netlify.app
+**本番 URL（API）:** [kb-api.ordeamo.com](https://kb-api.ordeamo.com) _(DNS 設定後に有効)_
+**本番 URL（Web）:** [cosmic-arithmetic-3fbd22.netlify.app](https://cosmic-arithmetic-3fbd22.netlify.app)
 
 ## アーキテクチャ
 
 ```text
 ┌─────────────────┐     GET /api/search      ┌──────────────────────┐
 │  knowledge-db-  │ ───────────────────────▶ │  knowledge-db API    │
-│  web (Netlify)  │                           │  (Render / Node.js)  │
+│  web (Netlify)  │                           │  MINIPC:8091         │
 └─────────────────┘                           └──────────┬───────────┘
                                                          │ pg Pool
                                               ┌──────────▼───────────┐
@@ -19,24 +19,27 @@
 │  クローラー      │   INSERT ON CONFLICT       └──────────────────────┘
 └─────────────────┘   DO NOTHING
 
+  MINIPC:8091 ←──autossh──→ sakura VPS:18091 ←──nginx──→ kb-api.ordeamo.com
+
                       Prometheus /metrics
 ┌─────────────────┐ ◀──────────────────────── knowledge-db API
 │  MINIPC         │
-│  Prometheus     │   Slack / Discord アラート（5xx / Down）
+│  Prometheus     │   Discord アラート（5xx / Down）
 │  + Grafana      │ ──────────────────────────────────────▶ Discord
 └─────────────────┘
 ```
 
 ## 技術スタック
 
-| Layer | Technology |
-| ----- | ---------- |
-| API | Node.js (Express) on Render |
-| Database | Neon (PostgreSQL 16) |
-| Search | PostgreSQL Full Text Search |
-| Observability | prom-client + pino |
-| Crawler | arXiv REST API + dev.to API |
-| Deployment | Render (API) + Netlify (Web) |
+| Layer         | Technology                                      |
+| ------------- | ----------------------------------------------- |
+| API           | Node.js (Express) on MINIPC (port 8091)         |
+| Public URL    | kb-api.ordeamo.com (autossh → sakura VPS nginx) |
+| Database      | Neon (PostgreSQL 16)                            |
+| Search        | PostgreSQL Full Text Search                     |
+| Observability | prom-client + pino                              |
+| Crawler       | arXiv REST API + dev.to API                     |
+| Deployment    | MINIPC (API) + Netlify (Web)                    |
 
 ## クイックスタート（ローカル）
 
@@ -65,24 +68,24 @@ curl http://localhost:3000/metrics
 
 ## 環境変数
 
-| 変数名 | 必須 | 説明 |
-| ------ | ---- | ---- |
-| `DATABASE_URL` | ✅ | Neon PostgreSQL 接続文字列 |
-| `LOG_LEVEL` | — | ログレベル（デフォルト: info） |
-| `DISCORD_WEBHOOK_INFRA` | — | 5xx エラー時の Discord 通知先 |
+| 変数名                  | 必須 | 説明                           |
+| ----------------------- | ---- | ------------------------------ |
+| `DATABASE_URL`          | ✅   | Neon PostgreSQL 接続文字列     |
+| `LOG_LEVEL`             | —    | ログレベル（デフォルト: info） |
+| `DISCORD_WEBHOOK_INFRA` | —    | 5xx エラー時の Discord 通知先  |
 
 ## API エンドポイント
 
-| Method | Path | 説明 |
-| ------ | ---- | ---- |
-| `GET` | `/api/health` | DB 死活確認 |
-| `GET` | `/api/search?q=<query>&limit=<n>` | 全文検索 |
-| `GET` | `/metrics` | Prometheus メトリクス |
+| Method | Path                              | 説明                  |
+| ------ | --------------------------------- | --------------------- |
+| `GET`  | `/api/health`                     | DB 死活確認           |
+| `GET`  | `/api/search?q=<query>&limit=<n>` | 全文検索              |
+| `GET`  | `/metrics`                        | Prometheus メトリクス |
 
 ### GET /api/search
 
 ```bash
-curl "https://knowledge-db-api.onrender.com/api/search?q=RAG&limit=5"
+curl "https://kb-api.ordeamo.com/api/search?q=RAG&limit=5"
 ```
 
 ```json
@@ -119,12 +122,12 @@ DATABASE_URL="..." node scripts/run-crawler.js --source devto --limit 50
 
 ## ドキュメント
 
-| ドキュメント | 内容 |
-| ------------ | ---- |
-| [docs/operations.md](docs/operations.md) | デプロイ手順・go-live チェックリスト・定期メンテ |
-| [docs/sla-and-monitoring.md](docs/sla-and-monitoring.md) | SLA 目標値・監視メトリクス定義 |
-| [docs/troubleshooting.md](docs/troubleshooting.md) | 障害対応ガイド（8パターン） |
-| [docs/recovery.md](docs/recovery.md) | データ復旧手順 |
+| ドキュメント                                             | 内容                                             |
+| -------------------------------------------------------- | ------------------------------------------------ |
+| [docs/operations.md](docs/operations.md)                 | デプロイ手順・go-live チェックリスト・定期メンテ |
+| [docs/sla-and-monitoring.md](docs/sla-and-monitoring.md) | SLA 目標値・監視メトリクス定義                   |
+| [docs/troubleshooting.md](docs/troubleshooting.md)       | 障害対応ガイド（8パターン）                      |
+| [docs/recovery.md](docs/recovery.md)                     | データ復旧手順                                   |
 
 ## 実装フェーズ
 
@@ -135,5 +138,6 @@ DATABASE_URL="..." node scripts/run-crawler.js --source devto --limit 50
 - [x] Phase 5: 観測性（prom-client + pino）
 - [x] Phase 6: 信頼性（ON CONFLICT dedup + retry）
 - [x] Phase 7: ドキュメント整備
-- [x] Phase 8: 本番デプロイ（Render API + Netlify Web）
+- [x] Phase 8: 本番デプロイ（Netlify Web）
 - [x] Phase 9: 監視自動化（30分ヘルスチェック + クローラー結果通知）
+- [x] Phase 10: MINIPC 移行（Render → MINIPC + autossh VPS トンネル）
