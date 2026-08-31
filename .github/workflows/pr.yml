@@ -2,8 +2,24 @@ name: PR Check
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main, develop, master]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/*.md'
+  push:
+    branches: [main, 'feat/**', 'fix/**', 'hotfix/**', 'refactor/**']
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/*.md'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
+    if: github.event.pull_request.draft == false && github.actor != 'github-actions[bot]'
     uses: ./.github/workflows/_shared-pr-check.yml
