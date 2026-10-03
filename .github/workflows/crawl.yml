@@ -40,7 +40,7 @@ jobs:
           OUTPUT=$(node scripts/run-crawler.js 2>&1)
           echo "$OUTPUT"
           SUMMARY=$(echo "$OUTPUT" | grep "crawl complete:" | tail -1)
-          echo "summary=$SUMMARY" >> $GITHUB_OUTPUT
+          echo "summary=$SUMMARY" >> "$GITHUB_OUTPUT"
 
       - name: Check total docs
         id: stats
@@ -54,7 +54,7 @@ jobs:
               process.exit(0);
             }).catch(() => { console.log('?'); process.exit(0); });
           " 2>/dev/null || echo "?")
-          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          echo "total=$TOTAL" >> "$GITHUB_OUTPUT"
 
       - name: Notify success
         if: success()

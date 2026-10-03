@@ -28,6 +28,8 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Deploy to ${{ inputs.environment }}
+        env:
+          DEPLOY_SSH_HOST: ${{ secrets.SSH_HOST }}
         run: |
           echo "Deployment to ${{ inputs.environment }}"
           echo "Host: ${{ secrets.SSH_HOST }}"
@@ -40,7 +42,7 @@ jobs:
           # 2. Self-hosted runner on MINIPC
           # 3. Webhook-based git pull on MINIPC
 
-          if [[ "${{ secrets.SSH_HOST }}" == *"192.168"* ]]; then
+          if [[ "$DEPLOY_SSH_HOST" == *"192.168"* ]]; then
             echo "⚠️  Target is private network - direct SSH not available"
             echo "Setup options:"
             echo "  1. SSH to MINIPC: ssh yuki@192.168.68.63"
@@ -54,8 +56,8 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
 
           ssh -i ~/.ssh/deploy_key -o ConnectTimeout=10 -o StrictHostKeyChecking=no \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "cd /home/${{ secrets.SSH_USER }}/$(basename $GITHUB_REPOSITORY) && git pull && ${{ inputs.deploy-command }}"
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "cd /home/${{ secrets.SSH_USER }}/$(basename "$GITHUB_REPOSITORY") && git pull && ${{ inputs.deploy-command }}"
 
           rm ~/.ssh/deploy_key
       
